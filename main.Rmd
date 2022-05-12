@@ -1,5 +1,5 @@
 ---
-title: "Insert paper title here"
+title: "The altered entry pathway and antigenic distance of the SARS-CoV-2 Omicron variant map to separate domains of spike protein"
 author: "Ada Yan"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
@@ -11,7 +11,7 @@ vignette: >
 
 ## Introduction
 
-This vignette contains code to reproduce the modelling analysis and figures in the manuscript "", using data and functions in the `deltaomicron1` package.
+This vignette contains code to reproduce the modelling analysis and figures in the manuscript "The altered entry pathway and antigenic distance of the SARS-CoV-2 Omicron variant map to separate domains of spike protein", using data and functions in the `deltaomicron1` package.
 
 ## Main text
 
@@ -32,9 +32,9 @@ devtools::load_all()
 ```{r eval = FALSE}
 run_exp_camostat_amphoB(save_dir = "results/",
                         strain = "omicron",
-                        camostat_vec = c(FALSE, TRUE, FALSE),
-                        amphoB_vec = c(FALSE, FALSE, TRUE),
-                        Calu3 = TRUE,
+                        camostat_vec = c(FALSE, TRUE),
+                        amphoB_vec = c(FALSE, FALSE),
+                        Calu3 = FALSE,
                         PCR = TRUE,
                         mvr = FALSE,
                         length_run = 2,
@@ -43,13 +43,13 @@ run_exp_camostat_amphoB(save_dir = "results/",
 
 fits the model to the Omicron Calu-3 data without drugs and with one drug, and saves the results in results/.  
 
-The arguments `camostat_vec = c(FALSE, TRUE, FALSE)` and `amphoB_vec = c(FALSE, FALSE, TRUE)` indicate the data sets to be fitted to.  Here we fit to three data sets, corresponding to each value of the vectors `camostat_vec` and `amphoB_vec`.  The first values of `camostat_vec` and `amphoB_vec` are `FALSE` and `FALSE`, indicating the no-drug data set; the second values are `TRUE` and `FALSE` respectively, indicating the Camostat-only data set; the final values are `FALSE` and `TRUE` respectively, indicating the Amphotericin B-only data set.
+The arguments `camostat_vec = c(FALSE, TRUE)` and `amphoB_vec = c(FALSE, FALSE)` indicate the data sets to be fitted to.  Here we fit to two data sets, corresponding to each value of the vectors `camostat_vec` and `amphoB_vec`.  The first values of `camostat_vec` and `amphoB_vec` are `FALSE` and `FALSE`, indicating the no-drug data set; the second values are `TRUE` and `FALSE` respectively, indicating the Camostat-only data set.
 
 The remaining arguments to this function are:
 
 * `save_dir`: directory to save results to
 * `strain`: `delta` or `omicron`: virus strain of data set to fit to.  (`omicron` is BA.1)
-* `Calu3`: if `TRUE`, fit to Calu-3 cell data, if `FALSE`, fit to hNEC data
+* `Calu3`: if `TRUE`, fit to Calu-3 cell data (not used), if `FALSE`, fit to hNEC data
 * `PCR`: if `TRUE`, fit to qPCR and plaque assay data simultaneously; if `FALSE`, fit to plaque assay data only
 * `mvr`: if `TRUE`, use multivariate proposal distribution for MCMC; if `FALSE`, use univariate proposal distribution for MCMC
 * `length_run`: values `1`, `2` and `3` are used for running short, mid-length, or long MCMC chains respectively
@@ -60,31 +60,31 @@ Most of these arguments take a single value in this work, because the scope of t
 To run all of the model fits in the main text:
 
 ```{r eval = FALSE}
-input_grid <- expand_grid(strain = c("omicron", "delta"), Calu3 = c(TRUE, FALSE)) %>%
-  mutate(output_folder = paste0(strain, "_", Calu3, "/"))
-apply_named_args(input_grid, 1, function(strain, Calu3, output_folder) run_exp_camostat_amphoB(output_folder,
-                                                                          strain = strain,
-                                                                          camostat_vec = c(FALSE, TRUE, FALSE),
-                                                                          amphoB_vec = c(FALSE, FALSE, TRUE),
-                                                                          Calu3 = Calu3,
-                                                                          PCR = TRUE,
-                                                                          mvr = FALSE,
-                                                                          length_run = 2,
-                                                                          run_flag = TRUE))
+input_grid <- tibble(strain = c("omicron", "delta")) %>%
+  mutate(output_folder = paste0(strain, "/"))
+apply_named_args(input_grid, 1, function(strain, output_folder) run_exp_camostat_amphoB(output_folder,
+                                                                                        strain = strain,
+                                                                                        camostat_vec = c(FALSE, TRUE),
+                                                                                        amphoB_vec = c(FALSE, FALSE),
+                                                                                        Calu3 = FALSE,
+                                                                                        PCR = TRUE,
+                                                                                        mvr = FALSE,
+                                                                                        length_run = 2,
+                                                                                        run_flag = TRUE))
 ```
 
 The main output of the code are the files `1_chain.csv`, `6_chain.csv`, and `11_chain.csv`, which contain the parameter values sampled by the MCMC chains.  3 MCMC chains are run for each model fit, with one output file corresponding to each.  Additionally, summary statistics are computed, and their median and 95\% credible intervals, as well as those of the raw parameters, are stored in `1_prctile.tex`, `6_prctile.tex` and `11_prctile.tex` for each of the three chains.  If the three MCMC chains have converged, then there is an additional file `1_prctile_combined.tex` which contains the median and 95\% credible intervals combined across the three chains.
 
-To make the model predictions and plots in Fig. X:
+To make the model predictions and plots in Extended Fig. 6:
 
 ```{r eval = FALSE}
-calc_and_plot_trajectories <- function(strain, Calu3, output_folder) {
+calc_and_plot_trajectories <- function(strain, output_folder) {
   
   trajectory_filename <- paste0(output_folder, "trajectories.rds")
   trajectories <- calc_trajectories_camostat_amphoB(filename = paste0(output_folder, "1.RData"))
   saveRDS(trajectories, trajectory_filename)
   
-  plot_trajectories(strain, Calu3 = Calu3, trajectory_filename)
+  plot_trajectories_camostat(strain, Calu3 = FALSE, trajectory_filename)
 }
 
 apply_named_args(input_grid, 1, calc_and_plot_trajectories)
@@ -93,14 +93,11 @@ apply_named_args(input_grid, 1, calc_and_plot_trajectories)
 To calculate the p-values for the doubling time differing between Omicron and Delta:
 
 ```{r eval = FALSE}
-calc_p_values <- function(input_grid, Calu3_in) {
-  dir_names <- input_grid %>% filter(Calu3 == Calu3_in) %>% pull(output_folder)
-  pathways <- c("tmprss2", "endosomal", "both", "endosomal_no_IFITM", "both_no_IFITM")
-  pathways <- paste0("doubling_time", pathways)
-  p_values <- lapply(pathways, pairwise_stats_tests, data_dir = dir_names)
-  p_values <- vnapply(p_values, function(x) x$p_value)
-  names(p_values) <- pathways
-  p_values
-}
-lapply(c(FALSE, TRUE), calc_p_values, input_grid = input_grid)
+dir_names <- input_grid %>% pull(output_folder)
+pathways <- c("tmprss2", "endosomal", "both")
+pathways <- paste0("doubling_time", pathways)
+p_values <- lapply(pathways, pairwise_stats_tests, data_dir = dir_names)
+p_values <- vnapply(p_values, function(x) x$p_value)
+names(p_values) <- pathways
+p_values
 ```

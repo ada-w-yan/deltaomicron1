@@ -278,9 +278,6 @@ specify_camostat_parameters_fn <-
 
     ## initial conditions
 
-    # .69 pfu = 1 tcid50
-    # this probably also affects the beta conversion factor...
-    # is it more correct to change one for now?
     parTab <- rbind(
       parTab,
       data.frame(
@@ -368,8 +365,7 @@ specify_camostat_parameters_fn <-
       rbind(
         parTab,
         data.frame(
-          # myrsini's metaanalysis, weight all studies equally -- not the version in the preprint,
-          # in JB's presentation 2022-01-25 (raw data folder)
+          # Table 1, weight all studies equally
           values = (0.0376 + 0.0158 + 0.0043 + 0.0471) / 4,
           names = "prop_ace2_pos",
           fixed = 1,
@@ -384,7 +380,7 @@ specify_camostat_parameters_fn <-
       rbind(
         parTab,
         data.frame(
-          # myrsini's metaanalysis, weight all studies equally
+          # Table 1, weight all studies equally
           values = (1.09 / 3.76 + 0.73 / 1.58 + 0.06 / 0.43 + 2.52 / 4.71) / 4,
           # proportion tmprss2+ out of ace2+
           names = "prop_tmprss2_pos",
@@ -535,9 +531,9 @@ specify_camostat_amphoB_parameters_fn <- function(strain, Calu3, PCR) {
              strain_names = strain)
   # susceptibility to IFITM -- 0 is 0 susceptibility, 1 is complete abrogation of infection
   parTab <- rbind(parTab, data.frame(
-    values = 0.5,
+    values = 0,
     names = "IFITM",
-    fixed = 0,
+    fixed = 1,
     lower_bound = 0,
     upper_bound = 1,
     steps = .1,

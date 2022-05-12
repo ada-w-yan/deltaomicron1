@@ -375,3 +375,107 @@ plot_trajectories <- function(strain1, Calu3 = FALSE, trajectory_filename) {
   }
 
 }
+
+plot_trajectories_camostat <- function(strain1, Calu3 = FALSE, trajectory_filename) {
+  
+  dir_name <- paste0(strsplit(trajectory_filename, "/", fixed = TRUE)[[1]][1], "/")
+  
+  trajectories <- readRDS(trajectory_filename)
+  PCR <- "V_tot" %in% colnames(trajectories)
+  
+  if(Calu3) {
+    data_df <- read_Calu3_data(strain = strain1)
+  } else {
+    data_df <- read_camostat_data(strain = strain1)
+  }
+  
+  if(PCR) {
+    data_df <- data_df %>%
+      pivot_longer(starts_with("V"), names_to = "model", values_to = "V") %>%
+      mutate(PCR = grepl("tot", model),
+             model = gsub("_tot", "", model),
+             model = recode(model, V = "full",
+                            V_Camostat = "endosomal_only",
+                            V_AmphoB = "full_no_IFITM",
+                            V_Camostat_AmphoB = "endosomal_no_IFITM"))
+  } else {
+    data_df <- data_df %>%
+      rename(full = "V_no_drug", endosomal_only = "V_Camostat") %>%
+      pivot_longer(c("full", "endosomal_only"), names_to = "model", values_to = "V")
+  }
+  
+  trajectories <- readRDS(trajectory_filename)
+  
+  data_df <- data_df %>%
+    filter(t >= 0)
+  plot_inner <- function(data_df, trajectories, PCR, facet1 = FALSE) {
+    
+    if(PCR) {
+      trajectories <- trajectories %>%
+        select(t, V_tot, probs, model) %>%
+        pivot_wider(names_from = probs, values_from = V_tot) %>%
+        filter(t >= 0)
+      y_label = "RNA copy number"
+      y_max <- 1e12
+      data_df <- data_df %>%
+        filter(PCR)
+    } else {
+      trajectories <- trajectories %>%
+        select(t, V, probs, model) %>%
+        pivot_wider(names_from = probs, values_from = V) %>%
+        filter(t >= 0)
+      if("PCR" %in% colnames(data_df)) {
+        data_df <- data_df %>% filter(PCR == FALSE)
+      }
+      y_label = "Viral load (pfu)"
+      y_max <- 1e8
+    }
+    
+    levels_vec <- c("full", "endosomal_only", "tmprss2_only")
+    
+    data_df <- data_df %>%
+      filter(model %in% levels_vec) %>%
+      mutate(model = factor(model, levels = levels_vec))
+    trajectories <- trajectories %>%
+      filter(model %in% levels_vec) %>%
+      mutate(model = factor(model, levels = levels_vec))
+    facet_labels <- c("Both pathways", "Endosomal", "TMPRSS2")
+    names(facet_labels) <- levels_vec
+    g <- ggplot(data_df) +
+      geom_ribbon(data = trajectories, aes(x = t, ymin = lower, ymax = upper, fill = model, group = model),
+                  alpha = .3) +
+      geom_point(aes(x = t, y = V,
+                     color = model, group = model)) +
+      geom_line(data = trajectories, aes(x = t, y = max_LL, color = model, group = model)) +
+      scale_y_log10(y_label) +
+      coord_cartesian(ylim = c(1, y_max)) +
+      theme_bw() +
+      xlab("Time (hpi)") +
+      scale_color_discrete(drop = FALSE,
+                           labels = c("No drug", "Camostat", ""),
+                           name = "Drug") +
+      scale_fill_discrete(guide = "none")
+    if(facet1) {
+      g <- g +
+        facet_wrap(~model, nrow = 3, labeller = labeller(model = facet_labels))
+    }
+    if(!PCR) {
+      g <- g + geom_hline(yintercept = 50, linetype = "dashed")
+    }
+    g
+  }
+  
+  if(PCR) {
+    plot_grid <- expand_grid(PCR = c(FALSE, TRUE), facet1 = c(FALSE, TRUE)) %>%
+      mutate(filename = paste0(dir_name, "model_predictions_", strain1,
+                               ifelse(PCR, "_PCR", ""),
+                               ifelse(facet1, "_facet", ""), ".png"))
+    g <- Map(function(x, y) plot_inner(data_df, trajectories, x, y), plot_grid$PCR, plot_grid$facet1)
+    Map(function(x, y) ggsave(x, y, width = 3, height = 3),
+        plot_grid$filename, g)
+  } else {
+    g <- plot_inner(data_df, trajectories, FALSE)
+    ggsave(paste0(dir_name, "model_predictions_", strain1, ".png"), g, width = 5, height = 5)
+  }
+  
+}
