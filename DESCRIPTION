@@ -1,0 +1,26 @@
+Package: deltaomicron
+Title: Fit model to Delta and Omicron growth curves with and without Camostat
+Version: 0.0.0.9000
+Authors@R: person("Ada W. C.", "Yan", email = "a.yan@imperial.ac.uk", role = c("aut", "cre"))
+Description: Fit model to Delta and Omicron growth curves with and without Camostat
+License: use_mit_license()
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    ggplot2,
+    tidyr,
+    readr,
+    dplyr,
+    odin,
+    coda,
+    lazymcmc,
+    latex2exp,
+    reshape2,
+    xtable
+Remotes:
+    ada-w-yan/lazymcmc
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
