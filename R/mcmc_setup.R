@@ -195,3 +195,53 @@ cont_MCMC <-function(old_dir,
                      CREATE_PRIOR_FUNC = old_input$CREATE_PRIOR_FUNC,
                      mcmcPars = mcmcPars)
 }
+
+cont_MCMC <-function(old_dir,
+                     new_filenames,
+                     length_run) {
+  source(paste0(old_dir, "1.output"), local = TRUE)
+  old_input <- load_into_list(paste0(old_dir, "1.RData"))
+  starting_pars <- lapply(output_write, function(x) x$current_pars)
+  n_pars <- length(starting_pars[[1]][[1]])
+  unfixed_pars <- old_input$parTab$fixed == 0
+  if(old_input$mvr) {
+    mvr_init <- rep(list(vector("list", old_input$n_temperatures)), old_input$n_replicates)
+    covMat <- matrix(0, nrow = n_pars, ncol = n_pars)
+    for(i in seq_len(old_input$n_replicates)) {
+      for(j in seq_len(old_input$n_temperatures)) {
+        covMat[unfixed_pars, unfixed_pars] <- output_write[[i]]$covMat[[j]]
+        mvr_init[[i]][[j]] <- list(covMat = covMat, scale = output_write[[i]]$scale[[j]], w = 0.8)
+      }
+    }
+  } else {
+    mvr_init <- NULL
+  }
+  
+  # define parameters for MCMC
+  if(length_run == 1) {
+    mcmcPars <- gen_mcmcPars_timing()
+  } else if(length_run == 2){
+    mcmcPars <- gen_mcmcPars(temperature = seq_len(old_input$n_temperatures), parallel_tempering_iter = 10)
+  } else if (length_run == 3) {
+    mcmcPars <- gen_mcmcPars_long(temperature = seq_len(old_input$n_temperatures), parallel_tempering_iter = 10)
+  } else {
+    stop("unknown length run")
+  }
+  
+  mcmcPars$adaptive_period <- mcmcPars$max_adaptive_period <- 0
+  mcmcPars <- rep(list(mcmcPars), old_input$n_replicates)
+  for(i in seq_len(old_input$n_replicates)) {
+    mcmcPars[[i]]$temperature <- output_write[[i]]$temperatures
+  }
+  
+  setup_and_run_MCMC(starting_pars = starting_pars,
+                     filenames = new_filenames,
+                     run_parallel = old_input$run_parallel,
+                     mvr = old_input$mvr,
+                     mvr_init = mvr_init,
+                     specify_parameters = old_input$specify_parameters,
+                     get_data = old_input$get_data,
+                     CREATE_POSTERIOR_FUNC = old_input$CREATE_POSTERIOR_FUNC,
+                     CREATE_PRIOR_FUNC = old_input$CREATE_PRIOR_FUNC,
+                     mcmcPars = mcmcPars)
+}
